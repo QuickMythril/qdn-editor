@@ -1,0 +1,173 @@
+@font-face {
+    font-family: 'Lexend';
+    src: url('Lexend-Regular.ttf') format('truetype');
+}
+
+body {
+    font-family: 'Lexend', sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: #0f1a2e;
+    color: #c9d2d9;
+}
+
+header {
+    background-color: #070d19;
+    color: #c9d2d9;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+header h1 {
+    margin: 0;
+}
+
+main {
+    width: 80%;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #2d3749;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 25px;
+}
+
+section {
+    margin-bottom: 20px;
+}
+
+section h2 {
+    background-color: #070d19;
+    color: #c9d2d9;
+    padding: 10px;
+    margin-top: 0;
+    border-radius: 20px;
+}
+
+section h3 {
+    background-color: #070d19;
+    color: #c9d2d9;
+    padding: 5px;
+    margin-top: 0;
+    border-radius: 15px;
+}
+
+a {
+    color: #008fd5;
+}
+
+p, table {
+    margin: 10px 0;
+}
+
+table {
+    width: 100%;
+}
+
+
+th, td {
+    text-align: left;
+    padding: 8px;
+    border: 1px solid #4c5154;
+    vertical-align: middle;
+}
+
+th.clickable-name {
+    color: #008fd5;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+td.clickable-name {
+    color: #008fd5;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+td.clickable-name:hover {
+    color: tomato;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+span.clickable-name {
+    color: #008fd5;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+th {
+    background-color: #0f1a2e;
+}
+
+tr:nth-child(odd) {
+    background-color: #3d4452;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background-color: #070d19;
+    color: #c9d2d9;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+button {
+    background-color: #008fd5;
+    color: #c9d2d9;
+    padding: 10px 10px;
+    border: none;
+    cursor: pointer;
+    border-radius: 15px;
+    vertical-align: middle;
+}
+
+select {
+    background-color: #008fd5;
+    color: #c9d2d9;
+    padding: 5px 5px;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+    vertical-align: middle;
+}
+
+img {
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+#volume-table td {
+    text-align: right;
+    font-family: monospace
+}
+
+#menu-list {
+    text-align: center;
+}
+
+#search-button {
+    padding: 5px 10px;
+    border-radius: 10px;
+    margin-right: 10px;
+}
+
+#user-info {
+    padding: 10px;
+}
+
+#user-details p, #wallet-info h3, #wallet-info p {
+    margin: 5px 0;
+}
+
+#user-avatar {
+    width: 100px;
+    height: 100px;
+    margin-top: 10px;
+}
+
+#login-prompt {
+    text-align: center;
+}
