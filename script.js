@@ -36,7 +36,7 @@ async function fetchContent() {
         }
         document.getElementById('content-details').innerHTML = '<p>Loading...</p>';
 
-        const response = await fetch(`/arbitrary/resources/search?name=${userName}&includemetadata=true&exactmatchnames=true`);
+        const response = await fetch(`/arbitrary/resources/search?name=${userName}&includemetadata=true&exactmatchnames=true&mode=ALL`);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
