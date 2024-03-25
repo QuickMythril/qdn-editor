@@ -66,8 +66,20 @@ async function fetchContent() {
                 }
                 let sizeString = formatSize(result.size);
                 tableHtml += `<tr><td>${result.service}</td>
-                    <td class="clickable-name" data-service="${result.service}" data-identifier="${identifier}">
-                    ${identifier}</td>
+                    <td class="clickable-name" data-service="${result.service}" data-identifier="${identifier}">`;
+                if ((result.service === 'THUMBNAIL') ||
+                (result.service === 'QCHAT_IMAGE') ||
+                (result.service === 'IMAGE')) {
+                    tableHtml += `<img src="/arbitrary/${result.service}/${userName}/${identifier}"
+                    style="width:100px;height:100px;"
+                    onerror="this.style='display:none'"
+                    ></img> ${identifier}`
+                } else {
+                    tableHtml += `${identifier}<br>
+                    <embed type="text/html" src="/arbitrary/${result.service}/${userName}/${identifier}">
+                    </embed>`
+                }
+                tableHtml += `</td>
                     <td>${sizeString}</td>
                     <td>${createdString}</td>
                     <td>${updatedString}</td>
