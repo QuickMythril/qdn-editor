@@ -78,6 +78,10 @@ async function fetchContent() {
                     style="width:100px;height:100px;"
                     onerror="this.style='display:none'"
                     ></img> ${identifier}`
+                } else if (result.service === 'VIDEO') {
+                    tableHtml += `<video controls><source
+                    src="/arbitrary/${result.service}/${userName}/${identifier}">
+                    </source></video> ${identifier}`
                 } else {
                     tableHtml += `${identifier}<br>
                     <embed type="text/html" src="/arbitrary/${result.service}/${userName}/${identifier}">
