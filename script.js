@@ -44,6 +44,8 @@ async function fetchContent() {
         const results = await response.json();
         if (results.length > 0) {
             let tableHtml = '<table>';
+            let totalFiles = 0;
+            let totalSize = 0;
             tableHtml += `
                 <tr>
                     <th>Service</th>
@@ -55,6 +57,8 @@ async function fetchContent() {
             `;
             results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
             results.forEach(result => {
+                totalFiles += 1;
+                totalSize += result.size;
                 let identifier = (result.identifier === undefined) ? 'default' : result.identifier;
                 let createdString = new Date(result.created).toLocaleString()
                 let updatedString = new Date(result.updated).toLocaleString()
@@ -85,7 +89,14 @@ async function fetchContent() {
                     <td>${updatedString}</td>
                 </tr>`;
             });
-            tableHtml += '</table>';
+            let totalSizeString = formatSize(totalSize);
+            tableHtml += `<tr>
+                <th>${totalFiles} Files</th>
+                <th>Total Size:</th>
+                <th>${totalSizeString}</th>
+                <th></th>
+                <th></th>
+                </tr></table>`;
             document.getElementById('content-details').innerHTML = tableHtml;
             document.querySelectorAll('.clickable-name').forEach(element => {
                 element.addEventListener('click', function() {
@@ -104,12 +115,16 @@ async function fetchContent() {
 }
 
 function formatSize(size) {
-    if (size > (1024*1024)) {
-        return (size / (1024*1024)).toFixed(2) + ' mb';
+    if (size > (1024*1024*1024*1024)) {
+        return (size / (1024*1024*1024*1024)).toFixed(2) + ' TB';
+    } else if (size > (1024*1024*1024)) {
+        return (size / (1024*1024*1024)).toFixed(2) + ' GB';
+    } else if (size > (1024*1024)) {
+        return (size / (1024*1024)).toFixed(2) + ' MB';
     } else if (size > 1024) {
-        return (size / 1024).toFixed(2) + ' kb';
+        return (size / 1024).toFixed(2) + ' KB';
     } else {
-        return size + ' b';
+        return size + ' B';
     }
 }
 
