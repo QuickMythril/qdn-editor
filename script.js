@@ -50,9 +50,9 @@ async function fetchContent() {
                 <tr>
                     <th>Service</th>
                     <th>Identifier</th>
+                    <th>Preview</th>
                     <th>Size</th>
-                    <th>Created</th>
-                    <th>Last Updated</th>
+                    <th>Created / Updated</th>
                 </tr>
             `;
             results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
@@ -74,31 +74,37 @@ async function fetchContent() {
                 if ((result.service === 'THUMBNAIL') ||
                 (result.service === 'QCHAT_IMAGE') ||
                 (result.service === 'IMAGE')) {
-                    tableHtml += `<img src="/arbitrary/${result.service}/${userName}/${identifier}"
+                    tableHtml += `${identifier}</td><td><img
+                    src="/arbitrary/${result.service}/${userName}/${identifier}"
                     style="width:100px;height:100px;"
                     onerror="this.style='display:none'"
-                    ></img> ${identifier}`
+                    ></img>`
                 } else if (result.service === 'VIDEO') {
-                    tableHtml += `<video controls><source
-                    src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </source></video> ${identifier}`
+                    tableHtml += `${identifier}</td><td><video width="100%" controls>
+                    <source src="/arbitrary/${result.service}/${userName}/${identifier}">
+                    </source></video>`
+                } else if ((result.service === 'AUDIO') ||
+                (result.service === 'QCHAT_AUDIO') ||
+                (result.service === 'VOICE')) {
+                    tableHtml += `${identifier}</td><td><audio controls>
+                    <source src="/arbitrary/${result.service}/${userName}/${identifier}">
+                    </source></audio>`
                 } else {
-                    tableHtml += `${identifier}<br>
+                    tableHtml += `${identifier}</td><td>
                     <embed type="text/html" src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </embed>`
                 }
                 tableHtml += `</td>
                     <td>${sizeString}</td>
-                    <td>${createdString}</td>
-                    <td>${updatedString}</td>
+                    <td>${createdString}<br>${updatedString}</td>
                 </tr>`;
             });
             let totalSizeString = formatSize(totalSize);
             tableHtml += `<tr>
+                <th>Total Count:</th>
                 <th>${totalFiles} Files</th>
                 <th>Total Size:</th>
                 <th>${totalSizeString}</th>
-                <th></th>
                 <th></th>
                 </tr></table>`;
             document.getElementById('content-details').innerHTML = tableHtml;
