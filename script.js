@@ -9,6 +9,7 @@ async function accountLogin() {
         const account = await qortalRequest({
             action: "GET_USER_ACCOUNT"
         });
+        document.getElementById('account-details').innerHTML = 'Loading...';
         userAddress = account.address ? account.address : 'Address unavailable';
         userPublicKey = account.publicKey ? account.publicKey : 'Public key unavailable';
         
@@ -25,7 +26,7 @@ async function accountLogin() {
         fetchContent();
     } catch (error) {
         console.error('Error fetching account details:', error);
-        // Handle error gracefully, e.g., show an error message to the user
+        document.getElementById('account-details').innerHTML = `Error fetching account details: ${error}`;
     }
 }
 
@@ -70,28 +71,28 @@ async function fetchContent() {
                 }
                 let sizeString = formatSize(result.size);
                 tableHtml += `<tr><td>${result.service}</td>
-                    <td class="clickable-name" data-service="${result.service}" data-identifier="${identifier}">`;
+                    <td class="clickable-name" data-service="${result.service}" data-identifier="${identifier}">
+                    ${identifier}</td><td>`;
                 if ((result.service === 'THUMBNAIL') ||
                 (result.service === 'QCHAT_IMAGE') ||
                 (result.service === 'IMAGE')) {
-                    tableHtml += `${identifier}</td><td><img
-                    src="/arbitrary/${result.service}/${userName}/${identifier}"
+                    tableHtml += `<img src="/arbitrary/${result.service}/${userName}/${identifier}"
                     style="width:100px;height:100px;"
                     onerror="this.style='display:none'"
                     ></img>`
                 } else if (result.service === 'VIDEO') {
-                    tableHtml += `${identifier}</td><td><video width="100%" controls>
+                    tableHtml += `<video width="100%" controls>
                     <source src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </source></video>`
                 } else if ((result.service === 'AUDIO') ||
                 (result.service === 'QCHAT_AUDIO') ||
                 (result.service === 'VOICE')) {
-                    tableHtml += `${identifier}</td><td><audio controls>
+                    tableHtml += `<audio controls>
                     <source src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </source></audio>`
                 } else {
-                    tableHtml += `${identifier}</td><td>
-                    <embed type="text/html" src="/arbitrary/${result.service}/${userName}/${identifier}">
+                    tableHtml += `<embed width="100%" type="text/html"
+                    src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </embed>`
                 }
                 tableHtml += `</td>
@@ -100,14 +101,10 @@ async function fetchContent() {
                 </tr>`;
             });
             let totalSizeString = formatSize(totalSize);
-            tableHtml += `<tr>
-                <th>Total Count:</th>
-                <th>${totalFiles} Files</th>
-                <th>Total Size:</th>
-                <th>${totalSizeString}</th>
-                <th></th>
-                </tr></table>`;
+            tableHtml += `</table>`;
             document.getElementById('content-details').innerHTML = tableHtml;
+            document.getElementById('account-details').innerHTML += `<p>Total Files: ${totalFiles}</p>
+            <p>Total Size: ${totalSizeString}</p>`;
             document.querySelectorAll('.clickable-name').forEach(element => {
                 element.addEventListener('click', function() {
                     let targetService = this.getAttribute('data-service');

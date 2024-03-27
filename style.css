@@ -24,7 +24,7 @@ header h1 {
 }
 
 main {
-    width: 80%;
+    width: 95%;
     margin: 20px auto;
     padding: 20px;
     background-color: #2d3749;
@@ -152,6 +152,10 @@ img {
     padding: 5px 10px;
     border-radius: 10px;
     margin-right: 10px;
+}
+
+#info-details, #account-details, #content-details p {
+    text-align: center;
 }
 
 #user-info {
