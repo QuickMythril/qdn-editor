@@ -64,6 +64,9 @@ table {
     width: 100%;
 }
 
+span {
+    vertical-align: middle;
+}
 
 th, td {
     text-align: left;
@@ -72,26 +75,14 @@ th, td {
     vertical-align: middle;
 }
 
-th.clickable-name {
+span.clickable-delete {
     color: #008fd5;
     cursor: pointer;
     text-decoration: underline;
 }
 
-td.clickable-name {
-    color: #008fd5;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-td.clickable-name:hover {
+span.clickable-delete:hover {
     color: tomato;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-span.clickable-name {
-    color: #008fd5;
     cursor: pointer;
     text-decoration: underline;
 }
