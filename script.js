@@ -98,22 +98,22 @@ async function fetchContent() {
                 if ((result.service === 'THUMBNAIL') ||
                     (result.service === 'QCHAT_IMAGE') ||
                     (result.service === 'IMAGE')) {
-                    tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
+                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <img src="/arbitrary/${result.service}/${userName}/${identifier}"
                     style="width:100px;height:100px;"
                     onerror="this.style='display:none'"
                     ></img>`;
                 } else if (result.service === 'VIDEO') {
-                    tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
+                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                    <video controls>
+                    <video controls width="400">
                     <source src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </source></video>`;
                 } else if ((result.service === 'AUDIO') ||
                     (result.service === 'QCHAT_AUDIO') ||
                     (result.service === 'VOICE')) {
-                    tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
+                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <audio controls>
                     <source src="/arbitrary/${result.service}/${userName}/${identifier}">
@@ -122,13 +122,13 @@ async function fetchContent() {
                     (result.service === 'BLOG_POST') ||
                     (result.service === 'BLOG_COMMENT') ||
                     (result.service === 'DOCUMENT')) {
-                    tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
+                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <embed width="100%" type="text/html"
                     src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </embed>`;
                 } else {
-                    tableHtml += `><embed width="100%" type="text/html"
+                    tableHtml += `<embed width="100%" type="text/html"
                     src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </embed>`;
                 }
