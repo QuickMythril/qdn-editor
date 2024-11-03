@@ -142,6 +142,10 @@ img {
     vertical-align: middle;
 }
 
+.filter-checkbox label {
+    margin-right: 20px;
+}
+
 #volume-table td {
     text-align: right;
     font-family: monospace

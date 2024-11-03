@@ -1,6 +1,8 @@
 let userPublicKey = '';
 let userAddress = '';
 let userName = '';
+let allResults = [];
+let metadataArray = [];
 const infoDetails =
     `<img src="red-x.svg" style="width:15px;height:15px;">
     Click the identifier to "delete" content.<br>
@@ -8,7 +10,7 @@ const infoDetails =
     <br>
     <img src="file-up.png" style="width:15px;height:15px;">
     Click the file select icon to "edit" content.<br>
-    (This will replace it with a selected file.)`
+    (This will replace it with a selected file.)`;
 
 document.getElementById('login-button').addEventListener('click', accountLogin);
 
@@ -50,129 +52,190 @@ async function fetchContent() {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        const results = await response.json();
-        if (results.length > 0) {
-            let tableHtml = '<table>';
-            let totalFiles = 0;
-            let totalSize = 0;
-            tableHtml += `
-                <tr>
-                    <th>Service</th>
-                    <th>Identifier</th>
-                    <th>Metadata</th>
-                    <th>Preview</th>
-                    <th>Size</th>
-                    <th>Created / Updated</th>
-                </tr>
-            `;
-            results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
-            let metadataArray = [];
-            for (const result of results) {
-                totalFiles += 1;
-                totalSize += result.size;
-                let identifier = (result.identifier === undefined) ? 'default' : result.identifier;
-                let createdString = new Date(result.created).toLocaleString()
-                let updatedString = new Date(result.updated).toLocaleString()
-                if (isNaN(new Date(result.created))) {
-                    createdString = 'Unknown';
-                }
-                if (isNaN(new Date(result.updated))) {
-                    updatedString = 'Never';
-                }
-                let sizeString = formatSize(result.size);
-                let metadataKeys = '';
-                let metadataIndex = -1;
-                if (result.metadata) {
-                    metadataIndex = metadataArray.length;
-                    metadataArray.push(result.metadata);
-                    metadataKeys = Object.keys(result.metadata).join(', ');
-                } else {
-                    metadataKeys = '';
-                }
-                tableHtml += `<tr>
-                    <td>${result.service}</td>
-                    <td><span class="clickable-delete" data-service="${result.service}" data-identifier="${identifier}">
-                    <img src="red-x.svg" style="width:15px;height:15px;">${identifier}</span></td>
-                    <td><span class="clickable-metadata" data-metadata-index='${metadataIndex}'>${metadataKeys}</span></td>
-                    <td>`;
-                if ((result.service === 'THUMBNAIL') ||
-                    (result.service === 'QCHAT_IMAGE') ||
-                    (result.service === 'IMAGE')) {
-                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                    class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                    <img src="/arbitrary/${result.service}/${userName}/${identifier}"
-                    style="width:100px;height:100px;"
-                    onerror="this.style='display:none'"
-                    ></img>`;
-                } else if (result.service === 'VIDEO') {
-                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                    class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                    <video controls width="400">
-                    <source src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </source></video>`;
-                } else if ((result.service === 'AUDIO') ||
-                    (result.service === 'QCHAT_AUDIO') ||
-                    (result.service === 'VOICE')) {
-                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                    class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                    <audio controls>
-                    <source src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </source></audio>`;
-                } else if ((result.service === 'BLOG') ||
-                    (result.service === 'BLOG_POST') ||
-                    (result.service === 'BLOG_COMMENT') ||
-                    (result.service === 'DOCUMENT')) {
-                    tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                    class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                    <embed width="100%" type="text/html"
-                    src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </embed>`;
-                } else {
-                    tableHtml += `<embed width="100%" type="text/html"
-                    src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </embed>`;
-                }
-                tableHtml += `</td>
-                    <td>${sizeString}</td>
-                    <td>${createdString}<br>${updatedString}</td>
-                </tr>`;
+        allResults = await response.json();
+        if (allResults.length > 0) {
+            // Collect unique service types
+            const serviceTypesSet = new Set();
+            for (const result of allResults) {
+                serviceTypesSet.add(result.service);
             }
-            let totalSizeString = formatSize(totalSize);
-            tableHtml += `</table>`;
-            document.getElementById('content-details').innerHTML = tableHtml;
-            document.getElementById('account-details').innerHTML += `<p>Total Files: ${totalFiles}</p>
-            <p>Total Size: ${totalSizeString}</p>`;
-            document.querySelectorAll('.clickable-delete').forEach(element => {
-                element.addEventListener('click', function() {
-                    let targetService = this.getAttribute('data-service');
-                    let targetIdentifier = this.getAttribute('data-identifier');
-                    deleteContent(targetService, targetIdentifier);
+            const serviceTypes = Array.from(serviceTypesSet);
+            // Generate checkboxes
+            const filterOptionsDiv = document.getElementById('filter-options');
+            filterOptionsDiv.innerHTML = ''; // Clear any existing content
+            serviceTypes.forEach(serviceType => {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `filter-${serviceType}`;
+                checkbox.name = 'serviceType';
+                checkbox.value = serviceType;
+                // By default, none of the checkboxes are checked
+                // Add event listener
+                checkbox.addEventListener('change', function() {
+                    updateContentDisplay();
                 });
+                const label = document.createElement('label');
+                label.htmlFor = `filter-${serviceType}`;
+                label.appendChild(document.createTextNode(serviceType));
+                filterOptionsDiv.appendChild(checkbox);
+                filterOptionsDiv.appendChild(label);
+                // filterOptionsDiv.appendChild(document.createElement('br'));
             });
-            document.querySelectorAll('.clickable-edit').forEach(element => {
-                element.addEventListener('click', function() {
-                    let targetService = this.getAttribute('data-service');
-                    let targetIdentifier = this.getAttribute('data-identifier');
-                    editContent(targetService, targetIdentifier);
-                });
-            });
-            document.querySelectorAll('.clickable-metadata').forEach(element => {
-                element.addEventListener('click', function() {
-                    let metadataIndex = this.getAttribute('data-metadata-index');
-                    if (metadataIndex >= 0) {
-                        let metadata = metadataArray[metadataIndex];
-                        openMetadataDialog(metadata);
-                    } else {
-                        alert('No metadata available.');
-                    }
-                });
-            });
+            // Initial display of content
+            updateContentDisplay();
         } else {
             document.getElementById('content-details').innerHTML = '<p>No results found.</p>';
+            document.getElementById('content-summary').innerHTML = '';
         }
     } catch (error) {
         console.error('Error fetching content:', error);
         document.getElementById('content-details').innerHTML = `<p>Error: ${error.message}</p>`;
+    }
+}
+
+function updateContentDisplay() {
+    // Get all checkboxes
+    const checkboxes = document.querySelectorAll('input[name="serviceType"]');
+    // Get selected service types
+    let selectedServiceTypes = [];
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            selectedServiceTypes.push(checkbox.value);
+        }
+    });
+    // Determine if we should display all results
+    let displayAll = (selectedServiceTypes.length === 0) || (selectedServiceTypes.length === checkboxes.length);
+    // Filter the results
+    let filteredResults = [];
+    if (displayAll) {
+        filteredResults = allResults;
+    } else {
+        filteredResults = allResults.filter(result => selectedServiceTypes.includes(result.service));
+    }
+    // Build the table with filtered results
+    buildContentTable(filteredResults);
+}
+
+function buildContentTable(results) {
+    if (results.length > 0) {
+        let tableHtml = '<table>';
+        let totalFiles = 0;
+        let totalSize = 0;
+        tableHtml += `
+            <tr>
+                <th>Service</th>
+                <th>Identifier</th>
+                <th>Metadata</th>
+                <th>Preview</th>
+                <th>Size</th>
+                <th>Created / Updated</th>
+            </tr>
+        `;
+        results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
+        metadataArray = []; // Reset metadataArray
+        for (const result of results) {
+            totalFiles += 1;
+            totalSize += result.size;
+            let identifier = (result.identifier === undefined) ? 'default' : result.identifier;
+            let createdString = new Date(result.created).toLocaleString()
+            let updatedString = new Date(result.updated).toLocaleString()
+            if (isNaN(new Date(result.created))) {
+                createdString = 'Unknown';
+            }
+            if (isNaN(new Date(result.updated))) {
+                updatedString = 'Never';
+            }
+            let sizeString = formatSize(result.size);
+            let metadataKeys = '';
+            let metadataIndex = -1;
+            if (result.metadata) {
+                metadataIndex = metadataArray.length;
+                metadataArray.push(result.metadata);
+                metadataKeys = Object.keys(result.metadata).join(', ');
+            } else {
+                metadataKeys = '';
+            }
+            tableHtml += `<tr>
+                <td>${result.service}</td>
+                <td><span class="clickable-delete" data-service="${result.service}" data-identifier="${identifier}">
+                <img src="red-x.svg" style="width:15px;height:15px;">${identifier}</span></td>
+                <td><span class="clickable-metadata" data-metadata-index='${metadataIndex}'>${metadataKeys}</span></td>
+                <td>`;
+            if ((result.service === 'THUMBNAIL') ||
+                (result.service === 'QCHAT_IMAGE') ||
+                (result.service === 'IMAGE')) {
+                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
+                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
+                <img src="/arbitrary/${result.service}/${userName}/${identifier}"
+                style="width:100px;height:100px;"
+                onerror="this.style='display:none'"
+                ></img>`;
+            } else if (result.service === 'VIDEO') {
+                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
+                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
+                <video controls width="400">
+                <source src="/arbitrary/${result.service}/${userName}/${identifier}">
+                </source></video>`;
+            } else if ((result.service === 'AUDIO') ||
+                (result.service === 'QCHAT_AUDIO') ||
+                (result.service === 'VOICE')) {
+                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
+                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
+                <audio controls>
+                <source src="/arbitrary/${result.service}/${userName}/${identifier}">
+                </source></audio>`;
+            } else if ((result.service === 'BLOG') ||
+                (result.service === 'BLOG_POST') ||
+                (result.service === 'BLOG_COMMENT') ||
+                (result.service === 'DOCUMENT')) {
+                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
+                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
+                <embed width="100%" type="text/html"
+                src="/arbitrary/${result.service}/${userName}/${identifier}">
+                </embed>`;
+            } else {
+                tableHtml += `<embed width="100%" type="text/html"
+                src="/arbitrary/${result.service}/${userName}/${identifier}">
+                </embed>`;
+            }
+            tableHtml += `</td>
+                <td>${sizeString}</td>
+                <td>${createdString}<br>${updatedString}</td>
+            </tr>`;
+        }
+        tableHtml += `</table>`;
+        document.getElementById('content-details').innerHTML = tableHtml;
+        document.getElementById('content-summary').innerHTML = `<p>Total Files: ${totalFiles}</p>
+        <p>Total Size: ${formatSize(totalSize)}</p>`;
+        // Add event listeners
+        document.querySelectorAll('.clickable-delete').forEach(element => {
+            element.addEventListener('click', function() {
+                let targetService = this.getAttribute('data-service');
+                let targetIdentifier = this.getAttribute('data-identifier');
+                deleteContent(targetService, targetIdentifier);
+            });
+        });
+        document.querySelectorAll('.clickable-edit').forEach(element => {
+            element.addEventListener('click', function() {
+                let targetService = this.getAttribute('data-service');
+                let targetIdentifier = this.getAttribute('data-identifier');
+                editContent(targetService, targetIdentifier);
+            });
+        });
+        document.querySelectorAll('.clickable-metadata').forEach(element => {
+            element.addEventListener('click', function() {
+                let metadataIndex = this.getAttribute('data-metadata-index');
+                if (metadataIndex >= 0) {
+                    let metadata = metadataArray[metadataIndex];
+                    openMetadataDialog(metadata);
+                } else {
+                    alert('No metadata available.');
+                }
+            });
+        });
+    } else {
+        document.getElementById('content-details').innerHTML = '<p>No results found.</p>';
+        document.getElementById('content-summary').innerHTML = '';
     }
 }
 
