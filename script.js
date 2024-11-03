@@ -65,7 +65,8 @@ async function fetchContent() {
                 </tr>
             `;
             results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
-            results.forEach(result => {
+            // Changed to for...of loop
+            for (const result of results) {
                 totalFiles += 1;
                 totalSize += result.size;
                 let identifier = (result.identifier === undefined) ? 'default' : result.identifier;
@@ -106,8 +107,11 @@ async function fetchContent() {
                     </source></audio>`
                 } else if ((result.service === 'BLOG') ||
                 (result.service === 'BLOG_POST') ||
-                (result.service === 'BLOG_COMMENT')) {
-                    tableHtml += `><embed width="100%" type="text/html"
+                (result.service === 'BLOG_COMMENT') ||
+                (result.service === 'DOCUMENT')) {
+                    tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
+                    class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
+                    <embed width="100%" type="text/html"
                     src="/arbitrary/${result.service}/${userName}/${identifier}">
                     </embed>`
                 } else {
@@ -119,7 +123,7 @@ async function fetchContent() {
                     <td>${sizeString}</td>
                     <td>${createdString}<br>${updatedString}</td>
                 </tr>`;
-            });
+            }
             let totalSizeString = formatSize(totalSize);
             tableHtml += `</table>`;
             document.getElementById('content-details').innerHTML = tableHtml;
@@ -189,27 +193,130 @@ async function editContent(service, identifier) {
             return;
         }
 
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.click();
-        const selectedFilePromise = new Promise((resolve, reject) => {
-            input.onchange = (event) => {
-                const file = event.target.files[0];
-                resolve(file);
-            };
-            input.onerror = reject;
-        });
-        const selectedFile = await selectedFilePromise;
-        const editIdent = (identifier === 'default') ? '' : identifier;
-        const response = await qortalRequest({
-            action: "PUBLISH_QDN_RESOURCE",
-            name: userName,
-            service: service,
-            identifier: editIdent,
-            file: selectedFile
-        });
-        console.log('Content edited successfully');
+        const textServices = ['BLOG', 'BLOG_POST', 'BLOG_COMMENT', 'DOCUMENT'];
+        if (textServices.includes(service)) {
+            // For text types, fetch the current content
+            let contentUrl = `/arbitrary/${service}/${userName}/${identifier}`;
+            let content = '';
+            try {
+                const contentResponse = await fetch(contentUrl);
+                if (contentResponse.ok) {
+                    content = await contentResponse.text();
+                } else {
+                    content = 'Error fetching content';
+                }
+            } catch (err) {
+                content = 'Error fetching content';
+            }
+            // Open a modal dialog to edit the content
+            let editedContent = await openTextEditorDialog(content);
+            if (editedContent === null) {
+                // User cancelled
+                return;
+            }
+            // Create a new Blob with the edited content
+            const editedFile = new Blob([editedContent], { type: 'text/plain' });
+            const editIdent = (identifier === 'default') ? '' : identifier;
+            const response = await qortalRequest({
+                action: "PUBLISH_QDN_RESOURCE",
+                name: userName,
+                service: service,
+                identifier: editIdent,
+                file: editedFile
+            });
+            console.log('Content edited successfully');
+            // Optionally, refresh the content display
+            // fetchContent();
+        } else {
+            // Existing code for other types
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.click();
+            const selectedFilePromise = new Promise((resolve, reject) => {
+                input.onchange = (event) => {
+                    const file = event.target.files[0];
+                    resolve(file);
+                };
+                input.onerror = reject;
+            });
+            const selectedFile = await selectedFilePromise;
+            const editIdent = (identifier === 'default') ? '' : identifier;
+            const response = await qortalRequest({
+                action: "PUBLISH_QDN_RESOURCE",
+                name: userName,
+                service: service,
+                identifier: editIdent,
+                file: selectedFile
+            });
+            console.log('Content edited successfully');
+            // Optionally, refresh the content display
+            // fetchContent();
+        }
     } catch (error) {
-        console.error('Error edited content:', error);
+        console.error('Error editing content:', error);
     }
+}
+
+function openTextEditorDialog(content) {
+    return new Promise((resolve, reject) => {
+        // Create the modal overlay
+        const modalOverlay = document.createElement('div');
+        modalOverlay.style.position = 'fixed';
+        modalOverlay.style.top = '0';
+        modalOverlay.style.left = '0';
+        modalOverlay.style.width = '100%';
+        modalOverlay.style.height = '100%';
+        modalOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        modalOverlay.style.display = 'flex';
+        modalOverlay.style.justifyContent = 'center';
+        modalOverlay.style.alignItems = 'center';
+        modalOverlay.style.zIndex = '1000';
+
+        // Create the modal content container
+        const modalContent = document.createElement('div');
+        modalContent.style.backgroundColor = '#fff';
+        modalContent.style.padding = '20px';
+        modalContent.style.borderRadius = '5px';
+        modalContent.style.maxWidth = '600px';
+        modalContent.style.width = '90%';
+
+        // Create the textarea for editing
+        const textarea = document.createElement('textarea');
+        textarea.style.width = '100%';
+        textarea.style.height = '300px';
+        textarea.value = content;
+
+        // Create the button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.textAlign = 'right';
+        buttonContainer.style.marginTop = '10px';
+
+        // Create the Save and Cancel buttons
+        const saveButton = document.createElement('button');
+        saveButton.textContent = 'Save';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.style.marginRight = '10px';
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(saveButton);
+
+        modalContent.appendChild(textarea);
+        modalContent.appendChild(buttonContainer);
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+
+        // Event listeners for the buttons
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+            resolve(null);
+        });
+
+        saveButton.addEventListener('click', () => {
+            const editedContent = textarea.value;
+            document.body.removeChild(modalOverlay);
+            resolve(editedContent);
+        });
+    });
 }
