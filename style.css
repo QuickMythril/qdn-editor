@@ -87,6 +87,18 @@ span.clickable-delete:hover {
     text-decoration: underline;
 }
 
+span.clickable-metadata {
+    color: #008fd5; /* Blue color for links */
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+span.clickable-metadata:hover {
+    color: #ffaa00; /* Hover color (you can choose another if preferred) */
+    cursor: pointer;
+    text-decoration: underline;
+}
+
 th {
     background-color: #0f1a2e;
 }

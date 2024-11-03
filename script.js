@@ -59,13 +59,14 @@ async function fetchContent() {
                 <tr>
                     <th>Service</th>
                     <th>Identifier</th>
+                    <th>Metadata</th>
                     <th>Preview</th>
                     <th>Size</th>
                     <th>Created / Updated</th>
                 </tr>
             `;
             results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
-            // Changed to for...of loop
+            let metadataArray = [];
             for (const result of results) {
                 totalFiles += 1;
                 totalSize += result.size;
@@ -79,45 +80,57 @@ async function fetchContent() {
                     updatedString = 'Never';
                 }
                 let sizeString = formatSize(result.size);
-                tableHtml += `<tr><td>${result.service}</td>
+                let metadataKeys = '';
+                let metadataIndex = -1;
+                if (result.metadata) {
+                    metadataIndex = metadataArray.length;
+                    metadataArray.push(result.metadata);
+                    metadataKeys = Object.keys(result.metadata).join(', ');
+                } else {
+                    metadataKeys = '';
+                }
+                tableHtml += `<tr>
+                    <td>${result.service}</td>
                     <td><span class="clickable-delete" data-service="${result.service}" data-identifier="${identifier}">
-                    <img src="red-x.svg" style="width:15px;height:15px;">${identifier}</span></td><td`;
+                    <img src="red-x.svg" style="width:15px;height:15px;">${identifier}</span></td>
+                    <td><span class="clickable-metadata" data-metadata-index='${metadataIndex}'>${metadataKeys}</span></td>
+                    <td>`;
                 if ((result.service === 'THUMBNAIL') ||
-                (result.service === 'QCHAT_IMAGE') ||
-                (result.service === 'IMAGE')) {
+                    (result.service === 'QCHAT_IMAGE') ||
+                    (result.service === 'IMAGE')) {
                     tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <img src="/arbitrary/${result.service}/${userName}/${identifier}"
                     style="width:100px;height:100px;"
                     onerror="this.style='display:none'"
-                    ></img>`
+                    ></img>`;
                 } else if (result.service === 'VIDEO') {
                     tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <video controls>
                     <source src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </source></video>`
+                    </source></video>`;
                 } else if ((result.service === 'AUDIO') ||
-                (result.service === 'QCHAT_AUDIO') ||
-                (result.service === 'VOICE')) {
+                    (result.service === 'QCHAT_AUDIO') ||
+                    (result.service === 'VOICE')) {
                     tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <audio controls>
                     <source src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </source></audio>`
+                    </source></audio>`;
                 } else if ((result.service === 'BLOG') ||
-                (result.service === 'BLOG_POST') ||
-                (result.service === 'BLOG_COMMENT') ||
-                (result.service === 'DOCUMENT')) {
+                    (result.service === 'BLOG_POST') ||
+                    (result.service === 'BLOG_COMMENT') ||
+                    (result.service === 'DOCUMENT')) {
                     tableHtml += `><img src="file-up.png" style="width:40px;height:40px;"
                     class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
                     <embed width="100%" type="text/html"
                     src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </embed>`
+                    </embed>`;
                 } else {
                     tableHtml += `><embed width="100%" type="text/html"
                     src="/arbitrary/${result.service}/${userName}/${identifier}">
-                    </embed>`
+                    </embed>`;
                 }
                 tableHtml += `</td>
                     <td>${sizeString}</td>
@@ -141,6 +154,17 @@ async function fetchContent() {
                     let targetService = this.getAttribute('data-service');
                     let targetIdentifier = this.getAttribute('data-identifier');
                     editContent(targetService, targetIdentifier);
+                });
+            });
+            document.querySelectorAll('.clickable-metadata').forEach(element => {
+                element.addEventListener('click', function() {
+                    let metadataIndex = this.getAttribute('data-metadata-index');
+                    if (metadataIndex >= 0) {
+                        let metadata = metadataArray[metadataIndex];
+                        openMetadataDialog(metadata);
+                    } else {
+                        alert('No metadata available.');
+                    }
                 });
             });
         } else {
@@ -318,5 +342,64 @@ function openTextEditorDialog(content) {
             document.body.removeChild(modalOverlay);
             resolve(editedContent);
         });
+    });
+}
+
+function openMetadataDialog(metadata) {
+    // Create the modal overlay
+    const modalOverlay = document.createElement('div');
+    modalOverlay.style.position = 'fixed';
+    modalOverlay.style.top = '0';
+    modalOverlay.style.left = '0';
+    modalOverlay.style.width = '100%';
+    modalOverlay.style.height = '100%';
+    modalOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    modalOverlay.style.display = 'flex';
+    modalOverlay.style.justifyContent = 'center';
+    modalOverlay.style.alignItems = 'center';
+    modalOverlay.style.zIndex = '1000';
+
+    // Create the modal content container
+    const modalContent = document.createElement('div');
+    modalContent.style.backgroundColor = '#2d3749'; // Use background color from main content
+    modalContent.style.color = '#c9d2d9'; // Use text color from your CSS
+    modalContent.style.padding = '20px';
+    modalContent.style.borderRadius = '25px'; // Match border radius from your CSS
+    modalContent.style.maxWidth = '600px';
+    modalContent.style.width = '90%';
+    modalContent.style.fontFamily = "'Lexend', sans-serif"; // Use the same font
+    modalContent.style.lineHeight = '1.6'; // Consistent line height
+
+    // Create the content display
+    const contentDiv = document.createElement('div');
+    contentDiv.style.maxHeight = '400px';
+    contentDiv.style.overflowY = 'auto';
+
+    // Build the metadata display
+    for (let key in metadata) {
+        const keyElement = document.createElement('strong');
+        keyElement.textContent = key + ': ';
+        keyElement.style.color = '#ffffff'; // Make keys stand out
+        const valueElement = document.createElement('span');
+        valueElement.textContent = metadata[key];
+        const lineBreak = document.createElement('br');
+        contentDiv.appendChild(keyElement);
+        contentDiv.appendChild(valueElement);
+        contentDiv.appendChild(lineBreak);
+    }
+
+    // Create the Close button
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Close';
+    closeButton.style.marginTop = '10px';
+
+    modalContent.appendChild(contentDiv);
+    modalContent.appendChild(closeButton);
+    modalOverlay.appendChild(modalContent);
+    document.body.appendChild(modalOverlay);
+
+    // Event listener for the Close button
+    closeButton.addEventListener('click', () => {
+        document.body.removeChild(modalOverlay);
     });
 }
