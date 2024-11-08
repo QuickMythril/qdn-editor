@@ -295,8 +295,13 @@ async function deleteContent(service, identifier) {
         if (existingMetadata["tags"]) {
             publishParams["tag1"] = "deleted";
         }
-        const response = await qortalRequest(publishParams);
-        console.log('Content deleted successfully');
+        // Proceed with publishing using publishWithFeedback
+        try {
+            const response = await publishWithFeedback(publishParams);
+            console.log('Content deleted successfully');
+        } catch (error) {
+            console.error('Error deleting content:', error);
+        }
     } catch (error) {
         console.error('Error deleting content:', error);
     }
@@ -399,11 +404,15 @@ async function editContent(service, identifier) {
                 delete publishParams[`tag${i}`];
             }
         }
-        // Proceed with publishing
-        const response = await qortalRequest(publishParams);
-        console.log('Content edited successfully');
-        // Optionally, refresh the content display
-        // fetchContent();
+        // Proceed with publishing using publishWithFeedback
+        try {
+            const response = await publishWithFeedback(publishParams);
+            console.log('Content edited successfully');
+            // Optionally, refresh the content display
+            // fetchContent();
+        } catch (error) {
+            console.error('Error editing content:', error);
+        }
     } catch (error) {
         console.error('Error editing content:', error);
     }
@@ -426,16 +435,21 @@ function openTextEditorDialog(content) {
 
         // Create the modal content container
         const modalContent = document.createElement('div');
-        modalContent.style.backgroundColor = '#fff';
+        modalContent.style.backgroundColor = '#2d3749'; // Use background color from main content
+        modalContent.style.color = '#c9d2d9'; // Use text color from your CSS
         modalContent.style.padding = '20px';
-        modalContent.style.borderRadius = '5px';
+        modalContent.style.borderRadius = '25px'; // Match border radius from your CSS
         modalContent.style.maxWidth = '600px';
         modalContent.style.width = '90%';
+        modalContent.style.fontFamily = "'Lexend', sans-serif"; // Use the same font
+        modalContent.style.lineHeight = '1.6'; // Consistent line height
 
         // Create the textarea for editing
         const textarea = document.createElement('textarea');
         textarea.style.width = '100%';
         textarea.style.height = '300px';
+        textarea.style.backgroundColor = '#3d4452'; // Use background color from main content
+        textarea.style.color = '#c9d2d9'; // Use text color from your CSS
         textarea.value = content;
 
         // Create the button container
@@ -634,5 +648,126 @@ function openMetadataEditorDialog(existingMetadata) {
             document.body.removeChild(modalOverlay);
             resolve(updatedMetadata);
         });
+    });
+}
+
+let publishModal = null;
+
+function showPublishModal(message) {
+    if (!publishModal) {
+        // Create the modal
+        publishModal = document.createElement('div');
+        publishModal.style.position = 'fixed';
+        publishModal.style.top = '0';
+        publishModal.style.left = '0';
+        publishModal.style.width = '100%';
+        publishModal.style.height = '100%';
+        publishModal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        publishModal.style.display = 'flex';
+        publishModal.style.justifyContent = 'center';
+        publishModal.style.alignItems = 'center';
+        publishModal.style.zIndex = '1000';
+
+        // Create the modal content container
+        const modalContent = document.createElement('div');
+        modalContent.style.backgroundColor = '#2d3749'; // Use background color from main content
+        modalContent.style.padding = '20px';
+        modalContent.style.borderRadius = '5px';
+        modalContent.style.maxWidth = '400px';
+        modalContent.style.width = '90%';
+        modalContent.style.textAlign = 'center';
+
+        // Create the message element
+        const messageElement = document.createElement('p');
+        messageElement.id = 'publish-modal-message';
+        messageElement.textContent = message;
+
+        modalContent.appendChild(messageElement);
+        publishModal.appendChild(modalContent);
+        document.body.appendChild(publishModal);
+    } else {
+        // Update the message
+        const messageElement = publishModal.querySelector('#publish-modal-message');
+        messageElement.textContent = message;
+
+        // Remove any buttons (Retry/Cancel) if they exist
+        const buttons = publishModal.querySelector('#publish-modal-buttons');
+        if (buttons) {
+            buttons.remove();
+        }
+    }
+}
+
+function closePublishModal() {
+    if (publishModal) {
+        document.body.removeChild(publishModal);
+        publishModal = null;
+    }
+}
+
+function showPublishErrorModal(errorMessage, onRetry, onCancel) {
+    if (publishModal) {
+        // Update the message
+        const messageElement = publishModal.querySelector('#publish-modal-message');
+        messageElement.textContent = errorMessage;
+
+        // Remove any existing buttons
+        const existingButtons = publishModal.querySelector('#publish-modal-buttons');
+        if (existingButtons) {
+            existingButtons.remove();
+        }
+
+        // Create buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.id = 'publish-modal-buttons';
+        buttonsContainer.style.marginTop = '20px';
+
+        // Create Retry button
+        const retryButton = document.createElement('button');
+        retryButton.textContent = 'Retry';
+        retryButton.style.marginRight = '10px';
+        retryButton.addEventListener('click', () => {
+            onRetry();
+        });
+
+        // Create Cancel button
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.addEventListener('click', () => {
+            onCancel();
+        });
+
+        buttonsContainer.appendChild(retryButton);
+        buttonsContainer.appendChild(cancelButton);
+
+        // Append buttons to modal content
+        const modalContent = publishModal.firstChild;
+        modalContent.appendChild(buttonsContainer);
+    }
+}
+
+async function publishWithFeedback(publishParams) {
+    return new Promise(async (resolve, reject) => {
+        async function attemptPublish() {
+            try {
+                // Show modal with "Attempting to publish, please wait..."
+                showPublishModal("Attempting to publish, please wait...");
+                const response = await qortalRequest(publishParams);
+                // Close modal
+                closePublishModal();
+                resolve(response);
+            } catch (error) {
+                // Update modal to show error message and Retry/Cancel buttons
+                showPublishErrorModal(`Publishing failed: ${error.message}`, () => {
+                    // On Retry
+                    attemptPublish();
+                }, () => {
+                    // On Cancel
+                    closePublishModal();
+                    reject(error);
+                });
+            }
+        }
+        await attemptPublish();
     });
 }
