@@ -258,6 +258,7 @@ async function deleteContent(service, identifier) {
         if (!userName || userName === 'Name unavailable') {
             return;
         }
+        showPublishModal("Please wait...");
         // Fetch existing metadata
         let existingMetadata = {};
         try {
@@ -312,6 +313,7 @@ async function editContent(service, identifier) {
         if (!userName || userName === 'Name unavailable') {
             return;
         }
+        showPublishModal("Please wait...");
         // Fetch existing metadata
         let existingMetadata = {};
         try {
@@ -359,6 +361,7 @@ async function editContent(service, identifier) {
             const editedFile = new Blob([editedContent], { type: 'text/plain' });
             publishParams.file = editedFile; // Add the edited file to publishParams
         } else {
+            closePublishModal();
             // For other types, prompt the user to select a new file
             const input = document.createElement('input');
             input.type = 'file';
@@ -476,6 +479,7 @@ function openTextEditorDialog(content) {
         // Event listeners for the buttons
         cancelButton.addEventListener('click', () => {
             document.body.removeChild(modalOverlay);
+            closePublishModal();
             resolve(null);
         });
 
@@ -577,27 +581,111 @@ function openMetadataEditorDialog(existingMetadata) {
 
         const fields = ['filename', 'title', 'description', 'category', 'tags'];
 
+        // Define the categories
+        const categories = [
+            { value: '', display: '' },
+            { value: 'ART', display: 'Art and Design' },
+            { value: 'AUTOMOTIVE', display: 'Automotive' },
+            { value: 'BEAUTY', display: 'Beauty' },
+            { value: 'BOOKS', display: 'Books and Reference' },
+            { value: 'BUSINESS', display: 'Business' },
+            { value: 'COMMUNICATIONS', display: 'Communications' },
+            { value: 'CRYPTOCURRENCY', display: 'Cryptocurrency and Blockchain' },
+            { value: 'CULTURE', display: 'Culture' },
+            { value: 'DATING', display: 'Dating' },
+            { value: 'DESIGN', display: 'Design' },
+            { value: 'ENTERTAINMENT', display: 'Entertainment' },
+            { value: 'EVENTS', display: 'Events' },
+            { value: 'FAITH', display: 'Faith and Religion' },
+            { value: 'FASHION', display: 'Fashion' },
+            { value: 'FINANCE', display: 'Finance' },
+            { value: 'FOOD', display: 'Food and Drink' },
+            { value: 'GAMING', display: 'Gaming' },
+            { value: 'GEOGRAPHY', display: 'Geography' },
+            { value: 'HEALTH', display: 'Health' },
+            { value: 'HISTORY', display: 'History' },
+            { value: 'HOME', display: 'Home' },
+            { value: 'KNOWLEDGE', display: 'Knowledge Share' },
+            { value: 'LANGUAGE', display: 'Language' },
+            { value: 'LIFESTYLE', display: 'Lifestyle' },
+            { value: 'MANUFACTURING', display: 'Manufacturing' },
+            { value: 'MAPS', display: 'Maps and Navigation' },
+            { value: 'MUSIC', display: 'Music' },
+            { value: 'NEWS', display: 'News' },
+            { value: 'OTHER', display: 'Other' },
+            { value: 'PETS', display: 'Pets' },
+            { value: 'PHILOSOPHY', display: 'Philosophy' },
+            { value: 'PHOTOGRAPHY', display: 'Photography' },
+            { value: 'POLITICS', display: 'Politics' },
+            { value: 'PRODUCE', display: 'Products and Services' },
+            { value: 'PRODUCTIVITY', display: 'Productivity' },
+            { value: 'PSYCHOLOGY', display: 'Psychology' },
+            { value: 'QORTAL', display: 'Qortal' },
+            { value: 'SCIENCE', display: 'Science' },
+            { value: 'SELF_CARE', display: 'Self Care' },
+            { value: 'SELF_SUFFICIENCY', display: 'Self-Sufficiency and Homesteading' },
+            { value: 'SHOPPING', display: 'Shopping' },
+            { value: 'SOCIAL', display: 'Social' },
+            { value: 'SOFTWARE', display: 'Software' },
+            { value: 'SPIRITUALITY', display: 'Spirituality' },
+            { value: 'SPORTS', display: 'Sports' },
+            { value: 'STORYTELLING', display: 'Storytelling' },
+            { value: 'TECHNOLOGY', display: 'Technology' },
+            { value: 'TOOLS', display: 'Tools' },
+            { value: 'TRAVEL', display: 'Travel' },
+            { value: 'UNCATEGORIZED', display: 'Uncategorized' },
+            { value: 'VIDEO', display: 'Video' },
+            { value: 'WEATHER', display: 'Weather' },
+        ];
+
         fields.forEach(field => {
             const label = document.createElement('label');
             label.textContent = field.charAt(0).toUpperCase() + field.slice(1) + ':';
             label.style.display = 'block';
             label.style.marginTop = '10px';
 
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.name = field;
-            input.style.width = '100%';
-            input.style.padding = '5px';
-            input.style.marginTop = '5px';
+            let input;
 
-            if (existingMetadata[field]) {
-                if (field === 'tags' && Array.isArray(existingMetadata[field])) {
-                    input.value = existingMetadata[field].join(', ');
-                } else {
+            if (field === 'category') {
+                // Create a select element for category
+                input = document.createElement('select');
+                input.name = field;
+                input.style.width = '100%';
+                input.style.padding = '5px';
+                input.style.marginTop = '5px';
+
+                // Add options to the select element
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.value;
+                    option.textContent = category.display;
+                    input.appendChild(option);
+                });
+
+                // Set the selected value if it exists in existingMetadata
+                if (existingMetadata[field]) {
                     input.value = existingMetadata[field];
+                } else {
+                    input.value = ''; // Default to blank line
                 }
             } else {
-                input.placeholder = field.charAt(0).toUpperCase() + field.slice(1);
+                // Create an input element for other fields
+                input = document.createElement('input');
+                input.type = 'text';
+                input.name = field;
+                input.style.width = '100%';
+                input.style.padding = '5px';
+                input.style.marginTop = '5px';
+
+                if (existingMetadata[field]) {
+                    if (field === 'tags' && Array.isArray(existingMetadata[field])) {
+                        input.value = existingMetadata[field].join(', ');
+                    } else {
+                        input.value = existingMetadata[field];
+                    }
+                } else {
+                    input.placeholder = field.charAt(0).toUpperCase() + field.slice(1);
+                }
             }
 
             label.appendChild(input);
@@ -631,6 +719,7 @@ function openMetadataEditorDialog(existingMetadata) {
         cancelButton.addEventListener('click', (event) => {
             event.preventDefault();
             document.body.removeChild(modalOverlay);
+            closePublishModal();
             resolve(null);
         });
 
@@ -696,6 +785,22 @@ function showPublishModal(message) {
             buttons.remove();
         }
     }
+    if (message == "Publish TX submitted! Confirmation needed.") {
+        // Create buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.id = 'publish-modal-buttons';
+        buttonsContainer.style.marginTop = '20px';
+        // Create Close button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = 'Close';
+        closeButton.addEventListener('click', () => {
+            closePublishModal();
+        });
+        buttonsContainer.appendChild(closeButton);
+        // Append button to modal content
+        const modalContent = publishModal.firstChild;
+        modalContent.appendChild(buttonsContainer);
+    }
 }
 
 function closePublishModal() {
@@ -754,8 +859,8 @@ async function publishWithFeedback(publishParams) {
                 showPublishModal("Attempting to publish, please wait...");
                 const response = await qortalRequest(publishParams);
                 // Close modal
-                closePublishModal();
                 resolve(response);
+                showPublishModal("Publish TX submitted! Confirmation needed.");
             } catch (error) {
                 // Update modal to show error message and Retry/Cancel buttons
                 showPublishErrorModal(`Publishing failed: ${error.message}`, () => {
