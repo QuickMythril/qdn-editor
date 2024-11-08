@@ -258,16 +258,44 @@ async function deleteContent(service, identifier) {
         if (!userName || userName === 'Name unavailable') {
             return;
         }
-
+        // Fetch existing metadata
+        let existingMetadata = {};
+        try {
+            const metadataResponse = await fetch(`/arbitrary/resources/search?name=${userName}&service=${service}&identifier=${identifier}&includemetadata=true&exactmatchnames=true&mode=ALL`);
+            if (metadataResponse.ok) {
+                const metadataResults = await metadataResponse.json();
+                if (metadataResults.length > 0 && metadataResults[0].metadata) {
+                    existingMetadata = metadataResults[0].metadata;
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching existing metadata:', err);
+        }
         const emptyFile = new Blob([], { type: 'application/octet-stream' });
         const deleteIdent = (identifier === 'default') ? '' : identifier;
-        const response = await qortalRequest({
+        // Prepare the publish parameters, including existing metadata if available
+        const publishParams = {
             action: "PUBLISH_QDN_RESOURCE",
             name: userName,
             service: service,
             identifier: deleteIdent,
             file: emptyFile
-        });
+        };
+        // List of metadata fields to delete
+        const metadataFields = ['filename', 'title', 'description'];
+        // Add existing metadata fields to publishParams if they exist
+        for (const field of metadataFields) {
+            if (existingMetadata[field]) {
+                publishParams[field] = "deleted";
+            }
+        }
+        if (existingMetadata["category"]) {
+            publishParams["category"] = "UNCATEGORIZED";
+        }
+        if (existingMetadata["tags"]) {
+            publishParams["tag1"] = "deleted";
+        }
+        const response = await qortalRequest(publishParams);
         console.log('Content deleted successfully');
     } catch (error) {
         console.error('Error deleting content:', error);
@@ -278,6 +306,48 @@ async function editContent(service, identifier) {
     try {
         if (!userName || userName === 'Name unavailable') {
             return;
+        }
+
+        // Fetch existing metadata
+        let existingMetadata = {};
+        try {
+            const metadataResponse = await fetch(`/arbitrary/resources/search?name=${userName}&service=${service}&identifier=${identifier}&includemetadata=true&exactmatchnames=true&mode=ALL`);
+            if (metadataResponse.ok) {
+                const metadataResults = await metadataResponse.json();
+                if (metadataResults.length > 0 && metadataResults[0].metadata) {
+                    existingMetadata = metadataResults[0].metadata;
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching existing metadata:', err);
+        }
+
+        const editIdent = (identifier === 'default') ? '' : identifier;
+
+        // Prepare the publish parameters, including existing metadata if available
+        const publishParams = {
+            action: "PUBLISH_QDN_RESOURCE",
+            name: userName,
+            service: service,
+            identifier: editIdent,
+            // 'file' will be added below after obtaining the edited or selected file
+        };
+
+        // List of metadata fields to preserve
+        const metadataFields = ['filename', 'title', 'description', 'category'];
+        // Add existing metadata fields to publishParams if they exist
+        for (const field of metadataFields) {
+            if (existingMetadata[field]) {
+                publishParams[field] = existingMetadata[field];
+            }
+        }
+        if (existingMetadata["tags"]) {
+            const existingTags = existingMetadata["tags"]
+            let i = 1;
+            for (const tag of existingTags) {
+                publishParams[`tag${i}`] = tag;
+                i = i + 1;
+            }
         }
 
         const textServices = ['BLOG', 'BLOG_POST', 'BLOG_COMMENT', 'DOCUMENT'];
@@ -303,19 +373,13 @@ async function editContent(service, identifier) {
             }
             // Create a new Blob with the edited content
             const editedFile = new Blob([editedContent], { type: 'text/plain' });
-            const editIdent = (identifier === 'default') ? '' : identifier;
-            const response = await qortalRequest({
-                action: "PUBLISH_QDN_RESOURCE",
-                name: userName,
-                service: service,
-                identifier: editIdent,
-                file: editedFile
-            });
+            publishParams.file = editedFile; // Add the edited file to publishParams
+            const response = await qortalRequest(publishParams);
             console.log('Content edited successfully');
             // Optionally, refresh the content display
             // fetchContent();
         } else {
-            // Existing code for other types
+            // For other types, prompt the user to select a new file
             const input = document.createElement('input');
             input.type = 'file';
             input.click();
@@ -327,14 +391,8 @@ async function editContent(service, identifier) {
                 input.onerror = reject;
             });
             const selectedFile = await selectedFilePromise;
-            const editIdent = (identifier === 'default') ? '' : identifier;
-            const response = await qortalRequest({
-                action: "PUBLISH_QDN_RESOURCE",
-                name: userName,
-                service: service,
-                identifier: editIdent,
-                file: selectedFile
-            });
+            publishParams.file = selectedFile; // Add the selected file to publishParams
+            const response = await qortalRequest(publishParams);
             console.log('Content edited successfully');
             // Optionally, refresh the content display
             // fetchContent();
