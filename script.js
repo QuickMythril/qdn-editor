@@ -157,8 +157,11 @@ function buildContentTable(results) {
             }
             tableHtml += `<tr>
                 <td>${result.service}</td>
-                <td><span class="clickable-delete" data-service="${result.service}" data-identifier="${identifier}">
-                <img src="red-x.svg" style="width:15px;height:15px;">${identifier}</span></td>
+                <td><span data-service="${result.service}" data-identifier="${identifier}"`;
+            if ((result.service !== 'APP') && (result.service !== 'WEBSITE') && (result.service.slice(-8) !== '_PRIVATE')) {
+                tableHtml += `class="clickable-delete"><img src="red-x.svg" style="width:15px;height:15px;"`;
+            }
+            tableHtml += `>${identifier}</span></td>
                 <td><span class="clickable-metadata" data-metadata-index='${metadataIndex}'>${metadataKeys}</span></td>
                 <td>`;
             if ((result.service === 'THUMBNAIL') ||
