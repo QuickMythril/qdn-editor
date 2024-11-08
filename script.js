@@ -307,7 +307,6 @@ async function editContent(service, identifier) {
         if (!userName || userName === 'Name unavailable') {
             return;
         }
-
         // Fetch existing metadata
         let existingMetadata = {};
         try {
@@ -321,10 +320,8 @@ async function editContent(service, identifier) {
         } catch (err) {
             console.error('Error fetching existing metadata:', err);
         }
-
         const editIdent = (identifier === 'default') ? '' : identifier;
-
-        // Prepare the publish parameters, including existing metadata if available
+        // Prepare the publish parameters
         const publishParams = {
             action: "PUBLISH_QDN_RESOURCE",
             name: userName,
@@ -332,24 +329,6 @@ async function editContent(service, identifier) {
             identifier: editIdent,
             // 'file' will be added below after obtaining the edited or selected file
         };
-
-        // List of metadata fields to preserve
-        const metadataFields = ['filename', 'title', 'description', 'category'];
-        // Add existing metadata fields to publishParams if they exist
-        for (const field of metadataFields) {
-            if (existingMetadata[field]) {
-                publishParams[field] = existingMetadata[field];
-            }
-        }
-        if (existingMetadata["tags"]) {
-            const existingTags = existingMetadata["tags"]
-            let i = 1;
-            for (const tag of existingTags) {
-                publishParams[`tag${i}`] = tag;
-                i = i + 1;
-            }
-        }
-
         const textServices = ['BLOG', 'BLOG_POST', 'BLOG_COMMENT', 'DOCUMENT'];
         if (textServices.includes(service)) {
             // For text types, fetch the current content
@@ -374,10 +353,6 @@ async function editContent(service, identifier) {
             // Create a new Blob with the edited content
             const editedFile = new Blob([editedContent], { type: 'text/plain' });
             publishParams.file = editedFile; // Add the edited file to publishParams
-            const response = await qortalRequest(publishParams);
-            console.log('Content edited successfully');
-            // Optionally, refresh the content display
-            // fetchContent();
         } else {
             // For other types, prompt the user to select a new file
             const input = document.createElement('input');
@@ -392,11 +367,43 @@ async function editContent(service, identifier) {
             });
             const selectedFile = await selectedFilePromise;
             publishParams.file = selectedFile; // Add the selected file to publishParams
-            const response = await qortalRequest(publishParams);
-            console.log('Content edited successfully');
-            // Optionally, refresh the content display
-            // fetchContent();
         }
+        // Open metadata editor dialog
+        let updatedMetadata = await openMetadataEditorDialog(existingMetadata);
+        if (updatedMetadata === null) {
+            // User cancelled
+            return;
+        }
+        // Update 'publishParams' with 'updatedMetadata'
+        const metadataFields = ['filename', 'title', 'description', 'category'];
+        for (const field of metadataFields) {
+            if (updatedMetadata[field]) {
+                publishParams[field] = updatedMetadata[field];
+            } else {
+                delete publishParams[field];
+            }
+        }
+        // Handle tags
+        if (updatedMetadata['tags']) {
+            const tagsArray = updatedMetadata['tags'].split(',').map(tag => tag.trim()).filter(tag => tag);
+            for (let i = 1; i <= 5; i++) {
+                if (tagsArray[i - 1]) {
+                    publishParams[`tag${i}`] = tagsArray[i - 1];
+                } else {
+                    delete publishParams[`tag${i}`];
+                }
+            }
+        } else {
+            // Remove tags if none provided
+            for (let i = 1; i <= 5; i++) {
+                delete publishParams[`tag${i}`];
+            }
+        }
+        // Proceed with publishing
+        const response = await qortalRequest(publishParams);
+        console.log('Content edited successfully');
+        // Optionally, refresh the content display
+        // fetchContent();
     } catch (error) {
         console.error('Error editing content:', error);
     }
@@ -522,5 +529,110 @@ function openMetadataDialog(metadata) {
     // Event listener for the Close button
     closeButton.addEventListener('click', () => {
         document.body.removeChild(modalOverlay);
+    });
+}
+
+function openMetadataEditorDialog(existingMetadata) {
+    return new Promise((resolve, reject) => {
+        // Create the modal overlay
+        const modalOverlay = document.createElement('div');
+        modalOverlay.style.position = 'fixed';
+        modalOverlay.style.top = '0';
+        modalOverlay.style.left = '0';
+        modalOverlay.style.width = '100%';
+        modalOverlay.style.height = '100%';
+        modalOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        modalOverlay.style.display = 'flex';
+        modalOverlay.style.justifyContent = 'center';
+        modalOverlay.style.alignItems = 'center';
+        modalOverlay.style.zIndex = '1000';
+
+        // Create the modal content container
+        const modalContent = document.createElement('div');
+        modalContent.style.backgroundColor = '#2d3749';
+        modalContent.style.color = '#c9d2d9';
+        modalContent.style.padding = '20px';
+        modalContent.style.borderRadius = '25px';
+        modalContent.style.maxWidth = '600px';
+        modalContent.style.width = '90%';
+        modalContent.style.fontFamily = "'Lexend', sans-serif";
+        modalContent.style.lineHeight = '1.6';
+
+        // Create the form
+        const form = document.createElement('form');
+
+        const fields = ['filename', 'title', 'description', 'category', 'tags'];
+
+        fields.forEach(field => {
+            const label = document.createElement('label');
+            label.textContent = field.charAt(0).toUpperCase() + field.slice(1) + ':';
+            label.style.display = 'block';
+            label.style.marginTop = '10px';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.name = field;
+            input.style.width = '100%';
+            input.style.padding = '5px';
+            input.style.marginTop = '5px';
+
+            if (existingMetadata[field]) {
+                if (field === 'tags' && Array.isArray(existingMetadata[field])) {
+                    input.value = existingMetadata[field].join(', ');
+                } else {
+                    input.value = existingMetadata[field];
+                }
+            } else {
+                input.placeholder = field.charAt(0).toUpperCase() + field.slice(1);
+            }
+
+            label.appendChild(input);
+            form.appendChild(label);
+        });
+
+        // Create the button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.textAlign = 'right';
+        buttonContainer.style.marginTop = '20px';
+
+        // Create the Save and Cancel buttons
+        const saveButton = document.createElement('button');
+        saveButton.textContent = 'Save';
+        saveButton.type = 'submit';
+        saveButton.style.marginLeft = '10px';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.textContent = 'Cancel';
+        cancelButton.type = 'button';
+
+        buttonContainer.appendChild(cancelButton);
+        buttonContainer.appendChild(saveButton);
+        form.appendChild(buttonContainer);
+
+        modalContent.appendChild(form);
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+
+        // Event listeners
+        cancelButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            document.body.removeChild(modalOverlay);
+            resolve(null);
+        });
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            // Collect the metadata
+            const formData = new FormData(form);
+            const updatedMetadata = {};
+            fields.forEach(field => {
+                const value = formData.get(field);
+                if (value) {
+                    updatedMetadata[field] = value;
+                }
+            });
+            document.body.removeChild(modalOverlay);
+            resolve(updatedMetadata);
+        });
     });
 }
