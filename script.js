@@ -196,6 +196,12 @@ function buildContentTable(results) {
                 <embed width="100%" type="text/html"
                 src="/arbitrary/${result.service}/${userName}/${identifier}">
                 </embed>`;
+            } else if (result.service === 'GAME') {
+                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
+                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
+                <embed width="100%" type="text/html"
+                src="/arbitrary/${result.service}/${userName}/${identifier}">
+                </embed>`;
             } else {
                 tableHtml += `<embed width="100%" type="text/html"
                 src="/arbitrary/${result.service}/${userName}/${identifier}">
