@@ -3,6 +3,12 @@ let userAddress = '';
 let userName = '';
 let allResults = [];
 let metadataArray = [];
+// Pagination variables
+let currentPage = 1;
+let itemsPerPage = 10;
+let totalResults = 0;
+let totalSize = 0;
+let currentServiceFilter = 'ALL'; // 'ALL' means no service filter
 const infoDetails =
     `<img src="red-x.svg" style="width:15px;height:15px;">
     Click the identifier to "delete" content.<br>
@@ -11,14 +17,26 @@ const infoDetails =
     <img src="file-up.png" style="width:15px;height:15px;">
     Click the file select icon to "edit" content.<br>
     (This will replace it with a selected file.)`;
-
+const contentPage = document.getElementById('content-page');
 document.getElementById('login-button').addEventListener('click', accountLogin);
+document.getElementById('items-per-page-dropdown').addEventListener('change', function() {
+    itemsPerPage = parseInt(this.value, 10);
+    currentPage = 1; // Reset to the first page
+    fetchPage();
+});
+document.getElementById('service-filter-dropdown').addEventListener('change', function() {
+    currentServiceFilter = this.value;
+    currentPage = 1;
+    // After changing service, we need to recalculate totalResults and then fetch that page.
+    fetchTotalCount(currentServiceFilter).then(() => fetchPage());
+});
 
 async function accountLogin() {
     try {
         const account = await qortalRequest({
             action: "GET_USER_ACCOUNT"
         });
+        contentPage.style.display = "block";
         document.getElementById('account-details').innerHTML = 'Loading...';
         userAddress = account.address ? account.address : 'Address unavailable';
         userPublicKey = account.publicKey ? account.publicKey : 'Public key unavailable';
@@ -33,94 +51,102 @@ async function accountLogin() {
         userName = names.length > 0 && names[0].name ? names[0].name : 'Name unavailable';
         document.getElementById('info-details').innerHTML = infoDetails;
         document.getElementById('account-details').innerHTML = `${userAddress}<br>${userName}`;
-        fetchContent();
+        // First, get total count of all results and build service dropdown
+        await fetchTotalCount('ALL');
+        await buildServiceDropdown();
+        fetchPage();
     } catch (error) {
         console.error('Error fetching account details:', error);
         document.getElementById('account-details').innerHTML = `Error fetching account details: ${error}`;
     }
 }
 
-async function fetchContent() {
+async function fetchTotalCount(service) {
+    if (!userName || userName === 'Name unavailable') {
+        return;
+    }
+    // We fetch all results without limit to count them.
+    // If the API doesn't support a count header, we'll just get all items and count their length.
+    let serviceQuery = '';
+    if (service !== 'ALL') {
+        serviceQuery = `&service=${encodeURIComponent(service)}`;
+    }
+    // Make a single call with no limit specified to get all results.
+    // If the API returns all results when limit is not specified, this works.
+    // If the API requires a large limit, set a sufficiently large number.
+    const response = await fetch(`/arbitrary/resources/search?name=${userName}&includemetadata=true&exactmatchnames=true&mode=ALL${serviceQuery}`);
+    if (!response.ok) {
+        console.error('Error fetching total count');
+        totalResults = 0;
+        return;
+    }
+    const allData = await response.json();
+    totalResults = allData.length;
+    totalSize = allData.reduce((acc, r) => acc + r.size, 0);
+}
+
+async function buildServiceDropdown() {
+    // Fetch all results (from the previous fetchTotalCount('ALL') we have totalResults but no "allResults" here)
+    // To build the dropdown, we need to know all unique service types.
+    // We'll do a one-time fetch (like in fetchTotalCount) to get the full list again and store them.
+    const response = await fetch(`/arbitrary/resources/search?name=${userName}&includemetadata=true&exactmatchnames=true&mode=ALL`);
+    if (!response.ok) {
+        console.error('Error fetching all content for service dropdown');
+        return;
+    }
+    const fullResults = await response.json();
+    const serviceTypesSet = new Set();
+    for (const result of fullResults) {
+        serviceTypesSet.add(result.service);
+    }
+    const serviceTypes = Array.from(serviceTypesSet);
+    const filterOptions = document.getElementById('service-filter-dropdown');
+    filterOptions.innerHTML = ''; // Clear existing (if any)
+    // Add the ALL option
+    const allOption = document.createElement('option');
+    allOption.value = 'ALL';
+    allOption.textContent = 'ALL';
+    filterOptions.appendChild(allOption);
+    // Add one option per service
+    for (const svc of serviceTypes) {
+        const opt = document.createElement('option');
+        opt.value = svc;
+        opt.textContent = svc;
+        filterOptions.appendChild(opt);
+    }
+}
+
+async function fetchPage() {
     try {
         if (!userName || userName === 'Name unavailable') {
             return;
         }
         document.getElementById('content-details').innerHTML = '<p>Loading...</p>';
-
-        const response = await fetch(`/arbitrary/resources/search?name=${userName}&includemetadata=true&exactmatchnames=true&mode=ALL`);
+        const offset = (currentPage - 1) * itemsPerPage;
+        let serviceFilterQuery = '';
+        if (currentServiceFilter !== 'ALL') {
+            serviceFilterQuery = `&service=${encodeURIComponent(currentServiceFilter)}`;
+        }
+        // Get a single page of results
+        const response = await fetch(`/arbitrary/resources/search?name=${userName}&includemetadata=true&exactmatchnames=true&mode=ALL&limit=${itemsPerPage}&offset=${offset}${serviceFilterQuery}`);
         if (!response.ok) {
             throw new Error(`HTTP error! Status: ${response.status}`);
         }
-
-        allResults = await response.json();
-        if (allResults.length > 0) {
-            // Collect unique service types
-            const serviceTypesSet = new Set();
-            for (const result of allResults) {
-                serviceTypesSet.add(result.service);
-            }
-            const serviceTypes = Array.from(serviceTypesSet);
-            // Generate checkboxes
-            const filterOptionsDiv = document.getElementById('filter-options');
-            filterOptionsDiv.innerHTML = ''; // Clear any existing content
-            serviceTypes.forEach(serviceType => {
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = `filter-${serviceType}`;
-                checkbox.name = 'serviceType';
-                checkbox.value = serviceType;
-                // By default, none of the checkboxes are checked
-                // Add event listener
-                checkbox.addEventListener('change', function() {
-                    updateContentDisplay();
-                });
-                const label = document.createElement('label');
-                label.htmlFor = `filter-${serviceType}`;
-                label.appendChild(document.createTextNode(serviceType));
-                filterOptionsDiv.appendChild(checkbox);
-                filterOptionsDiv.appendChild(label);
-                // filterOptionsDiv.appendChild(document.createElement('br'));
-            });
-            // Initial display of content
-            updateContentDisplay();
-        } else {
-            document.getElementById('content-details').innerHTML = '<p>No results found.</p>';
-            document.getElementById('content-summary').innerHTML = '';
-        }
+        const pageResults = await response.json();
+        allResults = pageResults; // Store current page results
+        buildContentTable(allResults);
     } catch (error) {
-        console.error('Error fetching content:', error);
+        console.error('Error fetching page:', error);
         document.getElementById('content-details').innerHTML = `<p>Error: ${error.message}</p>`;
     }
 }
 
-function updateContentDisplay() {
-    // Get all checkboxes
-    const checkboxes = document.querySelectorAll('input[name="serviceType"]');
-    // Get selected service types
-    let selectedServiceTypes = [];
-    checkboxes.forEach(checkbox => {
-        if (checkbox.checked) {
-            selectedServiceTypes.push(checkbox.value);
-        }
-    });
-    // Determine if we should display all results
-    let displayAll = (selectedServiceTypes.length === 0) || (selectedServiceTypes.length === checkboxes.length);
-    // Filter the results
-    let filteredResults = [];
-    if (displayAll) {
-        filteredResults = allResults;
-    } else {
-        filteredResults = allResults.filter(result => selectedServiceTypes.includes(result.service));
-    }
-    // Build the table with filtered results
-    buildContentTable(filteredResults);
-}
-
 function buildContentTable(results) {
+    const contentDetailsDiv = document.getElementById('content-details');
+    const contentSummaryDiv = document.getElementById('content-summary');
     if (results.length > 0) {
+        results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
         let tableHtml = '<table>';
-        let totalFiles = 0;
-        let totalSize = 0;
         tableHtml += `
             <tr>
                 <th>Service</th>
@@ -131,14 +157,11 @@ function buildContentTable(results) {
                 <th>Created / Updated</th>
             </tr>
         `;
-        results.sort((a, b) => (b.updated || b.created) - (a.updated || a.created));
         metadataArray = []; // Reset metadataArray
         for (const result of results) {
-            totalFiles += 1;
-            totalSize += result.size;
             let identifier = (result.identifier === undefined) ? 'default' : result.identifier;
-            let createdString = new Date(result.created).toLocaleString()
-            let updatedString = new Date(result.updated).toLocaleString()
+            let createdString = new Date(result.created).toLocaleString();
+            let updatedString = new Date(result.updated).toLocaleString();
             if (isNaN(new Date(result.created))) {
                 createdString = 'Unknown';
             }
@@ -152,71 +175,27 @@ function buildContentTable(results) {
                 metadataIndex = metadataArray.length;
                 metadataArray.push(result.metadata);
                 metadataKeys = Object.keys(result.metadata).join(', ');
-            } else {
-                metadataKeys = '';
             }
             tableHtml += `<tr>
                 <td>${result.service}</td>
-                <td><span data-service="${result.service}" data-identifier="${identifier}"`;
-            if ((result.service !== 'APP') && (result.service !== 'WEBSITE') && (result.service.slice(-8) !== '_PRIVATE')) {
-                tableHtml += `class="clickable-delete"><img src="red-x.svg" style="width:15px;height:15px;"`;
-            }
-            tableHtml += `>${identifier}</span></td>
+                <td><span data-service="${result.service}" data-identifier="${identifier}"` +
+                (((result.service !== 'APP') && (result.service !== 'WEBSITE') && (result.service.slice(-8) !== '_PRIVATE')) ? `class="clickable-delete"><img src="red-x.svg" style="width:15px;height:15px;"` : '>') + `${identifier}</span></td>
                 <td><span class="clickable-metadata" data-metadata-index='${metadataIndex}'>${metadataKeys}</span></td>
-                <td>`;
-            if ((result.service === 'THUMBNAIL') ||
-                (result.service === 'QCHAT_IMAGE') ||
-                (result.service === 'IMAGE')) {
-                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                <img src="/arbitrary/${result.service}/${userName}/${identifier}"
-                style="width:100px;height:100px;"
-                onerror="this.style='display:none'"
-                ></img>`;
-            } else if (result.service === 'VIDEO') {
-                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                <video controls width="400">
-                <source src="/arbitrary/${result.service}/${userName}/${identifier}">
-                </source></video>`;
-            } else if ((result.service === 'AUDIO') ||
-                (result.service === 'QCHAT_AUDIO') ||
-                (result.service === 'VOICE')) {
-                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                <audio controls>
-                <source src="/arbitrary/${result.service}/${userName}/${identifier}">
-                </source></audio>`;
-            } else if ((result.service === 'BLOG') ||
-                (result.service === 'BLOG_POST') ||
-                (result.service === 'BLOG_COMMENT') ||
-                (result.service === 'DOCUMENT')) {
-                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                <embed width="100%" type="text/html"
-                src="/arbitrary/${result.service}/${userName}/${identifier}">
-                </embed>`;
-            } else if (result.service === 'GAME') {
-                tableHtml += `<img src="file-up.png" style="width:40px;height:40px;"
-                class="clickable-edit" data-service="${result.service}" data-identifier="${identifier}">
-                <embed width="100%" type="text/html"
-                src="/arbitrary/${result.service}/${userName}/${identifier}">
-                </embed>`;
-            } else {
-                tableHtml += `<embed width="100%" type="text/html"
-                src="/arbitrary/${result.service}/${userName}/${identifier}">
-                </embed>`;
-            }
-            tableHtml += `</td>
+                <td>` + generatePreviewHTML(result, userName, identifier) + `</td>
                 <td>${sizeString}</td>
                 <td>${createdString}<br>${updatedString}</td>
             </tr>`;
         }
         tableHtml += `</table>`;
-        document.getElementById('content-details').innerHTML = tableHtml;
-        document.getElementById('content-summary').innerHTML = `<p>Total Files: ${totalFiles}</p>
-        <p>Total Size: ${formatSize(totalSize)}</p>`;
-        // Add event listeners
+        const startItem = (currentPage - 1) * itemsPerPage + 1;
+        const endItem = Math.min(startItem + itemsPerPage - 1, totalResults);
+        contentSummaryDiv.innerHTML = `<p>${startItem}-${endItem} of ${totalResults} results</p><p>Total Size: ${formatSize(totalSize)}</p>`;
+        const paginationTop = document.getElementById('pagination-top');
+        const paginationBottom = document.getElementById('pagination-bottom');
+        const paginationHTML = buildPaginationControls();
+        paginationTop.innerHTML = paginationHTML;
+        paginationBottom.innerHTML = paginationHTML;
+        contentDetailsDiv.innerHTML = tableHtml;
         document.querySelectorAll('.clickable-delete').forEach(element => {
             element.addEventListener('click', function() {
                 let targetService = this.getAttribute('data-service');
@@ -242,10 +221,56 @@ function buildContentTable(results) {
                 }
             });
         });
+        addPaginationEventHandlers();
     } else {
-        document.getElementById('content-details').innerHTML = '<p>No results found.</p>';
-        document.getElementById('content-summary').innerHTML = '';
+        contentDetailsDiv.innerHTML = '<p>No results found.</p>';
+        contentSummaryDiv.innerHTML = '';
+        document.getElementById('pagination-top').innerHTML = '';
+        document.getElementById('pagination-bottom').innerHTML = '';
     }
+}
+
+function buildPaginationControls() {
+    const totalPages = Math.ceil(totalResults / itemsPerPage);
+    if (totalPages <= 1) {
+        return ''; // No need if only one page
+    }
+    let html = '';
+    // First and previous arrows
+    if (currentPage > 1) {
+        html += `<span class="pagination-link" data-page="1">««</span>`;
+        html += `<span class="pagination-link" data-page="${currentPage - 1}">«</span>`;
+    } else {
+        html += `<span style="color:gray;">««</span>`;
+        html += `<span style="color:gray;">«</span>`;
+    }
+    for (let p = 1; p <= totalPages; p++) {
+        if (p === currentPage) {
+            html += `<span class="current-page">${p}</span>`;
+        } else {
+            html += `<span class="pagination-link" data-page="${p}">${p}</span>`;
+        }
+    }
+    if (currentPage < totalPages) {
+        html += `<span class="pagination-link" data-page="${currentPage + 1}">»</span>`;
+        html += `<span class="pagination-link" data-page="${totalPages}">»»</span>`;
+    } else {
+        html += `<span style="color:gray;">»</span>`;
+        html += `<span style="color:gray;">»»</span>`;
+    }
+    return html;
+}
+
+function addPaginationEventHandlers() {
+    document.querySelectorAll('.pagination-link').forEach(link => {
+        link.addEventListener('click', function() {
+            const newPage = parseInt(this.getAttribute('data-page'), 10);
+            if (!isNaN(newPage)) {
+                currentPage = newPage;
+                fetchPage();
+            }
+        });
+    });
 }
 
 function formatSize(size) {
@@ -259,6 +284,34 @@ function formatSize(size) {
         return (size / 1024).toFixed(2) + ' KB';
     } else {
         return size + ' B';
+    }
+}
+
+function generatePreviewHTML(result, userName, identifier) {
+    const service = result.service;
+    const previewBaseURL = `/arbitrary/${service}/${userName}/${identifier}`;
+    const editIconHTML = `<img src="file-up.png" style="width:40px;height:40px;"
+            class="clickable-edit" data-service="${service}" data-identifier="${identifier}">`;
+    if ((service === 'THUMBNAIL') || (service === 'QCHAT_IMAGE') || (service === 'IMAGE')) {
+        return `${editIconHTML}
+        <img src="${previewBaseURL}" style="width:100px;height:100px;"
+        onerror="this.style='display:none'"></img>`;
+    } else if (service === 'VIDEO') {
+        return `${editIconHTML}
+        <video controls width="400">
+            <source src="${previewBaseURL}">
+        </video>`;
+    } else if ((service === 'AUDIO') || (service === 'QCHAT_AUDIO') || (service === 'VOICE')) {
+        return `${editIconHTML}
+        <audio controls>
+            <source src="${previewBaseURL}">
+        </audio>`;
+    } else if ((service === 'BLOG') || (service === 'BLOG_POST') || (service === 'BLOG_COMMENT') || (service === 'DOCUMENT') || (service === 'GAME')) {
+        return `${editIconHTML}
+        <embed width="100%" type="text/html" src="${previewBaseURL}"></embed>`;
+    } else {
+        // Default preview
+        return `<embed width="100%" type="text/html" src="${previewBaseURL}"></embed>`;
     }
 }
 
